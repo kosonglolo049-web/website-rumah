@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kasir Rumah Makan</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      min-height: 100vh;
+      display: flex; 
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+
+      /* 🌆 Background gambar + overlay */
+      background: 
+        linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
+        url("https://e7.pngegg.com/pngimages/339/566/png-clipart-sushi-barbecue-chicken-barbecue-shading-background-barbecue-food.png") 
+        no-repeat center center / cover;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      width: 95vw;
+      height: 95vh;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+    h2 { color: #333; text-align: center; }
+    .menu-section {
+      flex: 2;
+      overflow-y: auto;
+    }
+    .order-section {
+      flex: 1;
+      overflow-y: auto;
+      background: #fff7f0;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .menu-category { 
+      font-weight: bold; 
+      margin-top: 15px; 
+      text-align: center;
+      font-size: 18px;
+    }
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .menu-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: 0.3s;
+      text-align: center;
+    }
+    .menu-card:hover {
+      transform: scale(1.05);
+      background: #ffe0cc;
+    }
+    .menu-card img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .menu-card p { margin: 4px 0; font-size: 14px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 6px;
+      text-align: left;
+    }
+    th { background: #ffe0cc; }
+    #kembalian {
+      margin-top: 10px;
+      font-weight: bold;
+      color: rgba(123, 34, 196, 0.7);
+      text-align: center;
+    }
+    button {
+      padding: 6px 10px;
+      margin: 4px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #ff7b00;
+      color: white;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #e85c2b;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Panel -->
+  <div id="loginPanel" class="container" style="flex-direction:column; width:400px; height:auto;">
+    <h2>🔐 Login Admin</h2>
+    <form onsubmit="return handleLogin(event)">
+      <label>Username:</label>
+      <input type="text" id="username" required />
+      <label>Password:</label>
+      <input type="password" id="password" required />
+      <button type="submit">Login</button>
+    </form>
+    <p id="loginError" style="color:red; text-align:center;"></p>
+  </div>
+
+  <!-- Kasir Panel -->
+  <div id="kasirPanel" class="container" style="display:none;">
+    <!-- Menu -->
+    <div class="menu-section">
+      <h2>🍽️ rumah makan iooo</h2>
+      <p class="menu-category">Makanan</p>
+      <div id="menuMakanan" class="menu-grid"></div>
+      <p class="menu-category">Minuman</p>
+      <div id="menuMinuman" class="menu-grid"></div>
+    </div>
+
+    <!-- Pesanan -->
+    <div class="order-section">
+      <h3>Pesanan:</h3>
+      <table id="tabelPesanan">
+        <tr><th>Menu</th><th>Harga</th></tr>
+      </table>
+      <p><b>Subtotal: Rp<span id="subtotal">0</span></b></p>
+      <p><b>Pajak (10%): Rp<span id="pajak">0</span></b></p>
+      <p><b>Total: Rp<span id="total">0</span></b></p>
+      <button onclick="buatQRIS()">Bayar via QRIS</button>
+      <button onclick="bayarCash()">Bayar Cash</button>
+      <p id="kembalian"></p>
+      <div id="qrcode" style="text-align:center; margin-top:20px;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    const adminUsername = "admin";
+    const adminPassword = "123456";
+    let subtotal = 0;
+    let qrcode;
+
+    function handleLogin(event) {
+      event.preventDefault();
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
+      if (user === adminUsername && pass === adminPassword) {
+        document.getElementById("loginPanel").style.display = "none";
+        document.getElementById("kasirPanel").style.display = "flex";
+        loadMenu();
+      } else {
+        document.getElementById("loginError").innerText = "❌ Username atau password salah!";
+      }
+    }
+
+    // --- 25 Makanan ---
+    const makanan = [
+      ["Nasi Goreng",20000,"https://dcostseafood.id/wp-content/uploads/2023/04/Nasi-Goreng-telor.jpg"],
+      ["Ayam Bakar",25000,"https://i.pinimg.com/564x/6b/e7/b9/6be7b96b76fa1743ca13cb2eb7178e97.jpg"],
+      ["Mie Goreng",18000,"https://www.dapurkobe.co.id/wp-content/uploads/mie-goreng-saus-tiram.jpg"],
+      ["Soto Ayam",22000,"https://asset.kompas.com/crops/yc5vBBn_kny5uxIg5QNuj7Qzx6c=/0x0:1000x667/1200x800/data/photo/2024/03/21/65fbab7732136.jpeg"],
+      ["Rendang",30000,"https://www.dapurkobe.co.id/wp-content/uploads/rendang-daging.jpg"],
+      ["Bakso",15000,"https://i.pinimg.com/originals/2e/0a/7e/2e0a7ef7a3363fc97842301b68a2106c.jpg"],
+      ["Gado-Gado",20000,"https://static.wixstatic.com/media/ecef2e_79c86cb5d5ac444b8a6761e1fc245646~mv2.jpg"],
+      ["Nasi Padang",28000,"https://assets-pergikuliner.com/4o-dKncqKNS6QQbFDqM52WkrK0o=/fit-in/1366x768/smart/filters:no_upscale()/https://assets-pergikuliner.com/uploads/bootsy/image/12013/picture-1537766225.jpeg"],
+      ["Ayam Goreng",23000,"https://assets.unileversolutions.com/v1/124411200.png"],
+      ["Pecel Lele",18000,"https://static.promediateknologi.id/crop/0x0:0x0/750x500/webp/photo/2023/05/30/b2aecfb2-fefd-415f-9424-2485a95d41ef-3601264130.png"],
+      ["Nasi Uduk",19000,"https://img-global.cpcdn.com/recipes/0d240827a5bd59f5/1200x630cq80/photo.jpg"],
+      ["Sate Ayam",25000,"https://asset.kompas.com/crops/96rHbnDkTGNa8Y-xW247623hONA=/0x0:1000x667/750x500/data/photo/2023/12/19/6580e31d4d33e.jpeg"],
+      ["Lontong Sayur",20000,"https://image.idntimes.com/post/20241220/lontong-sayur-9ced34d72537d14a10cc1653842f7d8b.jpg"],
+      ["Ayam Penyet",22000,"https://asset.kompas.com/crops/thu349ih-m9GxOPm1gzunV5yVYs=/0x0:1000x667/1200x800/data/photo/2023/12/22/6584d393e378e.jpeg"],
+      ["Tahu Tempe Goreng",15000,"https://i.ytimg.com/vi/8sfbuNpgPxo/maxresdefault.jpg"],
+      ["Mie Ayam",18000,"https://i.ytimg.com/vi/QiZt1ALYVEQ/hq720.jpg"],
+      ["Bakmi Goreng",18000,"https://www.bakmigm.com/cfind/source/thumb/images/menu/cover_w480_h480_9-bakmi-goreng.png"],
+      ["Rawon",28000,"https://www.holycowsteak.com/cdn/shop/articles/Thumbnail_bccc9157-1b79-47ed-9300-391dede1d189.webp"],
+      ["Sop Buntut",35000,"https://asset.kompas.com/crops/-ST2RqjESmF-NIsp703_Ji7wvf4=/139x96:939x629/1200x800/data/photo/2022/09/27/63329597320d8.jpg"],
+      ["Ayam Rica-Rica",27000,"https://www.natural-poultry.com/wp-content/uploads/2021/04/Ayam-rica-rica-1200x900.jpg"],
+      ["Tongseng",25000,"https://www.unileverfoodsolutions.co.id/dam/ufs-id/marketo/bango/14_TONGSENG_KAMBING.jpg"],
+      ["Ikan Goreng",25000,"https://asset.kompas.com/crops/X1b2o7i20fOvQT25t1M2_EL3bbE=/0x31:1000x698/1200x800/data/photo/2020/11/20/5fb73d87a253a.jpg"],
+      ["Udang Saus Padang",30000,"https://asset.kompas.com/crops/H0zAOZMJqTfWikUTtodZeKjQRY4=/0x0:1280x853/1200x800/data/photo/2020/08/06/5f2bd87e831f3.jpg"],
+      ["Kerang Rebus",25000,"https://img-global.cpcdn.com/recipes/84c484ce55194b22/680x781f0.498164_0.5_1.0q80/118-kerang-rebus-foto-resep-utama.jpg"],
+      ["Sop Kambing",32000,"https://www.dapurkobe.co.id/wp-content/uploads/sop-kambing-pedas.jpg"]
+    ];
+
+    // --- 25 Minuman ---
+    const minuman = [
+      ["Es Campur",15000,"https://i.pinimg.com/736x/d2/91/a2/d291a2b8687101fcfacaeb51750e92d7.jpg"],
+      ["Es Teh Manis",7000,"https://nilaigizi.com/assets/images/produk/produk_1578041377.jpg"],
+      ["Es Jeruk",10000,"https://i.gojekapi.com/darkroom/gofood-indonesia/v2/images/uploads/17496391-548d-48bb-bba1-df7404bffe6a_Go-Biz_20220124_165449.jpeg"],
+      ["Jus Alpukat",15000,"https://parto.id/asset/foto_produk/Jus_Alpukat_.png"],
+      ["Jus Mangga",15000,"https://i.pinimg.com/originals/5c/c3/2f/5cc32f9786561cef38ff64db3353a516.jpg"],
+      ["Teh Tarik",10000,"https://asset.kompas.com/crops/RKLk4Yrdmxv1xF2g2bJXnZI5LEo=/100x67:900x599/1200x800/data/photo/2023/11/27/6563db043c35f.jpeg"],
+      ["Kopi Hitam",12000,"https://res.cloudinary.com/dk0z4ums3/image/upload/v1594099345/attached_image/ini-manfaat-konsumsi-kopi-hitam-dan-efek-sampingnya-untuk-kesehatan.jpg"],
+      ["Susu Jahe",12000,"https://tribratanews.polri.go.id/web/image/blog.post/79679/image"],
+      ["Air Mineral",5000,"https://i0.wp.com/raisa.aeonstore.id/wp-content/uploads/2023/04/2541402.jpg"],
+      ["Es Cendol",15000,"https://healthybelly.s3.amazonaws.com/product/media_1739875547_0.webp"],
+      ["Es Dawet",15000,"https://static.promediateknologi.id/crop/0x0:0x0/0x0/webp/photo/p2/259/2025/09/03/cinta-laura-3871404897.png"],
+      ["Es Kopi",15000,"https://png.pngtree.com/recommend-works/png-clipart/20241204/ourmid/pngtree-coffee-ice-drink-soft-with-milk-plastic-cup-png-image_14621829.png"],
+      ["Es Kelapa Muda",18000,"https://i.gojekapi.com/darkroom/gofood-indonesia/v2/images/uploads/7c530e03-65da-475c-bfef-ec27d93cebf9_Go-Biz_20240504_005240.jpeg"],
+      ["Es Susu",12000,"https://png.pngtree.com/png-vector/20240726/ourlarge/pngtree-vibrant-milk-drink-with-ice-png-image_13239826.png"],
+      ["Teh Manis Panas",7000,"https://assets-a1.kompasiana.com/items/album/2023/04/14/how-long-does-brewed-tea-last-64397432a7e0fa257a581062.jpeg"],
+      ["Jus Jeruk",15000,"https://glowmates.co/cdn/shop/articles/jus_jeruk.png"],
+      ["Es Lemon Tea",12000,"https://png.pngtree.com/png-clipart/20241208/original/pngtree-summer-iced-lemon-tea-png-image_17735822.png"],
+      ["Es Soda Gembira",15000,"https://www.herworld.co.id/gallery/teaser/Cara-Membuat-Es-Soda-Gembira_41_20180228172400.jpg"],
+      ["Jus Strawberry",17000,"https://rocketchicken.co.id/storage/posts/November2019/DG0nsScOwyxlvC9GnJ2I.jpg"],
+      ["Jus Melon",15000,"https://res.cloudinary.com/dk0z4ums3/image/upload/v1698734199/attached_image/10-manfaat-jus-melon-untuk-kesehatan-tubuh.jpg"],
+      ["Teh Hijau",12000,"https://assets.unileversolutions.com/v1/136899255.jpg"],
+      ["Jus Nanas",15000,"https://akcdn.detik.net.id/visual/2024/06/13/ilustrasi-jus-nanas_43.jpeg"],
+      ["Es Kopi Susu",15000,"https://image.astronauts.cloud/product-images/2024/11/OatMilkEsKopiSusuGulaArenRegular_87df2ada-6cee-43f1-ba0b-8eeaea18aa22_900x900.jpg"],
+      ["Thai Tea",15000,"https://cdn.rri.co.id/berita/Samarinda/o/1719906421560-WhatsApp_Image_2024-07-02_at_15.40.09/wan2ryd4xy81fr1.jpeg"],
+      ["Jus Semangka",15000,"https://d1vbn70lmn1nqe.cloudfront.net/prod/wp-content/uploads/2023/11/27073622/Ini-3-Cara-Membuat-Jus-Semangka-Ala-Rumahan-yang-Enak-dan-Segar.jpg"]
+    ];
+
+    function loadMenu() {
+      const menuMakananDiv = document.getElementById("menuMakanan");
+      makanan.forEach(([nama,harga,gambar])=>{
+        const card=document.createElement("div");
+        card.className="menu-card";
+        card.innerHTML=`<img src="${gambar}" alt="${nama}" />
+          <p><b>${nama}</b></p><p>Rp ${harga.toLocaleString()}</p>`;
+        card.onclick=()=>tambahPesanan(nama,harga);
+        menuMakananDiv.appendChild(card);
+      });
+      const menuMinumanDiv = document.getElementById("menuMinuman");
+      minuman.forEach(([nama,harga,gambar])=>{
+        const card=document.createElement("div");
+        card.className="menu-card";
+        card.innerHTML=`<img src="${gambar}" alt="${nama}" />
+          <p><b>${nama}</b></p><p>Rp ${harga.toLocaleString()}</p>`;
+        card.onclick=()=>tambahPesanan(nama,harga);
+        menuMinumanDiv.appendChild(card);
+      });
+    }
+
+    function tambahPesanan(nama,harga){
+      const tabel=document.getElementById("tabelPesanan");
+      const row=tabel.insertRow();
+      row.insertCell(0).textContent=nama;
+      row.insertCell(1).textContent="Rp "+harga.toLocaleString();
+      subtotal+=harga;
+      updateTotal();
+      document.getElementById("kembalian").textContent="";
+      document.getElementById("qrcode").innerHTML="";
+    }
+
+    function updateTotal(){
+      const pajak=Math.round(subtotal*0.1);
+      const total=subtotal+pajak;
+      document.getElementById("subtotal").textContent=subtotal.toLocaleString();
+      document.getElementById("pajak").textContent=pajak.toLocaleString();
+      document.getElementById("total").textContent=total.toLocaleString();
+    }
+
+    function buatQRIS(){
+      if(subtotal===0){alert("Pesanan kosong!");return;}
+      const total=subtotal+Math.round(subtotal*0.1);
+      const qrisDiv=document.getElementById("qrcode");
+      qrisDiv.innerHTML="";
+      qrcode=new QRCode(qrisDiv,{text:`Bayar Rp${total}`,width:200,height:200});
+    }
+
+    function bayarCash(){
+      if(subtotal===0){alert("Pesanan kosong!");return;}
+      const total=subtotal+Math.round(subtotal*0.1);
+      let uang=prompt(`Total bayar: Rp${total.toLocaleString()}\nMasukkan jumlah uang bayar:`);
+      if(uang===null)return;
+      uang=parseInt(uang);
+      if(isNaN(uang)||uang<total){alert("Uang tidak cukup!");return;}
+      document.getElementById("kembalian").textContent=`Kembalian: Rp${(uang-total).toLocaleString()}`;
+      document.getElementById("qrcode").innerHTML="";
+    }
+  </script>
+</body>
+</html>
